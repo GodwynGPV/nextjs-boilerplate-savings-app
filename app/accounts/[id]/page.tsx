@@ -128,13 +128,17 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         <StatCard label="Total Balance" value={analytics.totalBalance} />
         <StatCard label="Total Contributions" value={analytics.totalContributions} />
         <StatCard label="Total Interest" value={analytics.totalInterest} />
-        <StatCard
-          label="Monthly Growth"
-          value={analytics.growth.monthOverMonth}
-          isCurrency={false}
-          trend={analytics.growth.monthOverMonth}
-          trendLabel="MoM"
-        />
+        {analytics.ownerTax > 0 ? (
+          <StatCard label={`Owner Tax (${account.owner})`} value={analytics.ownerTax} />
+        ) : (
+          <StatCard
+            label="Monthly Growth"
+            value={analytics.growth.monthOverMonth}
+            isCurrency={false}
+            trend={analytics.growth.monthOverMonth}
+            trendLabel="MoM"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

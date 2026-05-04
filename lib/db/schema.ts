@@ -8,6 +8,7 @@ export const accounts = pgTable("accounts", {
   name: text("name").notNull(),
   initialBalance: numeric("initial_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   members: text("members").array().notNull().default(["Wil", "Wyn", "Bam"]),
+  owner: text("owner"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -37,6 +38,7 @@ export const insertAccountSchema = createInsertSchema(accounts)
   .extend({
     initialBalance: z.union([z.string(), z.number()]).transform(String).optional().default("0"),
     members: z.array(z.string().min(1)).optional().default(["Wil", "Wyn", "Bam"]),
+    owner: z.string().nullable().optional(),
   });
 
 export const insertTransactionSchema = createInsertSchema(transactions)
@@ -55,6 +57,7 @@ export const updateTransactionSchema = z.object({
 
 export const updateAccountSchema = z.object({
   name: z.string().min(1).transform(s => s.trim()),
+  owner: z.string().nullable().optional(),
 });
 
 export type Account = typeof accounts.$inferSelect;
@@ -67,6 +70,7 @@ export interface AccountAnalytics {
   totalBalance: number;
   totalInterest: number;
   totalContributions: number;
+  ownerTax: number;
   contributors: {
     name: string;
     totalContributed: number;

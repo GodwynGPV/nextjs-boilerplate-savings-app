@@ -2,10 +2,13 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "./index";
 import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics } from "./schema";
 
+const OWNER_TAX_RATE = 0.30;
+
 function computeAnalytics(
   initialBalance: number,
   members: string[],
-  txns: { type: string; depositorName: string | null; amount: number; date: Date }[]
+  txns: { type: string; depositorName: string | null; amount: number; date: Date }[],
+  owner?: string | null
 ): AccountAnalytics {
   const sorted = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -19,11 +22,24 @@ function computeAnalytics(
   const interestAllocated: Record<string, number> = Object.fromEntries(members.map(m => [m, 0]));
   const contributed: Record<string, number> = Object.fromEntries(members.map(m => [m, 0]));
   let runningInterest = 0;
+  let ownerTax = 0;
+
+  const activeOwner = owner && members.includes(owner) ? owner : null;
 
   for (const t of sorted) {
     if (t.type === "deposit" && t.depositorName) {
       contributed[t.depositorName] = (contributed[t.depositorName] ?? 0) + t.amount;
     } else if (t.type === "interest") {
+      let distributable = t.amount;
+
+      // 30% account owner tax goes to the owner first
+      if (activeOwner) {
+        const tax = t.amount * OWNER_TAX_RATE;
+        interestAllocated[activeOwner] = (interestAllocated[activeOwner] ?? 0) + tax;
+        ownerTax += tax;
+        distributable = t.amount - tax;
+      }
+
       const snapshotTotal =
         initialBalance +
         Object.values(contributed).reduce((s, v) => s + v, 0) +
@@ -34,7 +50,7 @@ function computeAnalytics(
           const snapShare =
             (initialBalance / members.length + (contributed[name] ?? 0) + (interestAllocated[name] ?? 0)) /
             snapshotTotal;
-          interestAllocated[name] = (interestAllocated[name] ?? 0) + t.amount * snapShare;
+          interestAllocated[name] = (interestAllocated[name] ?? 0) + distributable * snapShare;
         }
       }
       runningInterest += t.amount;
@@ -71,6 +87,7 @@ function computeAnalytics(
     totalBalance,
     totalInterest,
     totalContributions,
+    ownerTax,
     contributors,
     growth: {
       monthOverMonth: balMonth > 0 ? ((totalBalance - balMonth) / balMonth) * 100 : 0,
@@ -82,7 +99,8 @@ function computeAnalytics(
 function rowsToAnalytics(
   initialBalance: string,
   members: string[],
-  rows: { type: string; depositorName: string | null; amount: string; date: string }[]
+  rows: { type: string; depositorName: string | null; amount: string; date: string }[],
+  owner?: string | null
 ): AccountAnalytics {
   const txns = rows.map(r => ({
     type: r.type,
@@ -90,7 +108,7 @@ function rowsToAnalytics(
     amount: parseFloat(r.amount),
     date: new Date(r.date),
   }));
-  return computeAnalytics(parseFloat(initialBalance), members, txns);
+  return computeAnalytics(parseFloat(initialBalance), members, txns, owner);
 }
 
 export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
@@ -101,7 +119,7 @@ export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
 
   return rows.map(acc => ({
     ...acc,
-    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions),
+    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner),
   }));
 }
 
@@ -111,22 +129,23 @@ export async function getAccount(id: number): Promise<AccountWithAnalytics | nul
     with: { transactions: { orderBy: [desc(transactions.date), desc(transactions.createdAt)] } },
   });
   if (!acc) return null;
-  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions) };
+  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner) };
 }
 
-export async function createAccount(data: { name: string; initialBalance?: string; members?: string[] }) {
+export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null }) {
   const [acc] = await db
     .insert(accounts)
     .values({
       name: data.name,
       initialBalance: data.initialBalance ?? "0",
       members: data.members ?? ["Wil", "Wyn", "Bam"],
+      owner: data.owner ?? null,
     })
     .returning();
   return acc;
 }
 
-export async function updateAccount(id: number, data: { name?: string }) {
+export async function updateAccount(id: number, data: { name?: string; owner?: string | null }) {
   const [acc] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
   return acc;
 }

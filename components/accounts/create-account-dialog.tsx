@@ -15,6 +15,7 @@ const schema = z.object({
   name: z.string().min(1, "Name is required"),
   initialBalance: z.string(),
   membersRaw: z.string().min(1, "At least one member is required"),
+  owner: z.string(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -24,13 +25,14 @@ export function CreateAccountDialog() {
   const { mutate, isPending } = useCreateAccount();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam" },
+    defaultValues: { name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam", owner: "Bam" },
   });
 
   function onSubmit(data: FormData) {
     const members = data.membersRaw.split(",").map(s => s.trim()).filter(Boolean);
-    mutate({ name: data.name, initialBalance: data.initialBalance || "0", members }, {
-      onSuccess: () => { reset({ name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam" }); setOpen(false); },
+    const owner = data.owner.trim() || null;
+    mutate({ name: data.name, initialBalance: data.initialBalance || "0", members, owner }, {
+      onSuccess: () => { reset({ name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam", owner: "Bam" }); setOpen(false); },
     });
   }
 
@@ -58,6 +60,11 @@ export function CreateAccountDialog() {
             <Input id="membersRaw" placeholder="Wil, Wyn, Bam" {...register("membersRaw")} />
             <p className="text-xs text-muted-foreground">Comma-separated names of account members.</p>
             {errors.membersRaw && <p className="text-sm text-destructive">{errors.membersRaw.message}</p>}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="owner">Account Owner</Label>
+            <Input id="owner" placeholder="e.g. Bam (leave blank for none)" {...register("owner")} />
+            <p className="text-xs text-muted-foreground">Owner receives 30% of interest as an account owner tax.</p>
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Creating…" : "Create Account"}
