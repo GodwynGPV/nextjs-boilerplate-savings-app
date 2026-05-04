@@ -15,7 +15,7 @@ import { useCreateTransaction } from "@/hooks/use-transactions";
 import { toISODateString } from "@/lib/utils";
 
 const depositSchema = z.object({
-  depositorName: z.enum(["Wil", "Wyn", "Bam"]),
+  depositorName: z.string().min(1, "Select a depositor"),
   amount: z.string().min(1).refine(v => parseFloat(v) > 0, "Amount must be positive"),
   date: z.string().min(1),
 });
@@ -28,7 +28,12 @@ const interestSchema = z.object({
 type DepositData = z.infer<typeof depositSchema>;
 type InterestData = z.infer<typeof interestSchema>;
 
-export function AddTransactionDialog({ accountId }: { accountId: number }) {
+interface Props {
+  accountId: number;
+  members: string[];
+}
+
+export function AddTransactionDialog({ accountId, members }: Props) {
   const [open, setOpen] = useState(false);
   const { mutate, isPending } = useCreateTransaction(accountId);
   const today = toISODateString(new Date());
@@ -74,12 +79,12 @@ export function AddTransactionDialog({ accountId }: { accountId: number }) {
             <form onSubmit={depositForm.handleSubmit(onDepositSubmit)} className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label>Depositor</Label>
-                <Select onValueChange={v => depositForm.setValue("depositorName", v as "Wil" | "Wyn" | "Bam")}>
+                <Select onValueChange={v => depositForm.setValue("depositorName", v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select depositor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {["Wil", "Wyn", "Bam"].map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                    {members.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {depositForm.formState.errors.depositorName && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Transaction, InsertTransaction } from "@/lib/db/schema";
+import type { Transaction, InsertTransaction, UpdateTransaction } from "@/lib/db/schema";
 
 export function useTransactions(accountId: number) {
   return useQuery<Transaction[]>({
@@ -16,6 +16,24 @@ export function useCreateTransaction(accountId: number) {
     mutationFn: (data: Omit<InsertTransaction, "accountId">) =>
       fetch(`/api/accounts/${accountId}/transactions`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transactions", accountId] });
+      qc.invalidateQueries({ queryKey: ["accounts", accountId] });
+      qc.invalidateQueries({ queryKey: ["accounts"] });
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+    },
+  });
+}
+
+export function useUpdateTransaction(accountId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: UpdateTransaction }) =>
+      fetch(`/api/transactions/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }).then(r => r.json()),

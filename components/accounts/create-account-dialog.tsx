@@ -14,6 +14,7 @@ import { useCreateAccount } from "@/hooks/use-accounts";
 const schema = z.object({
   name: z.string().min(1, "Name is required"),
   initialBalance: z.string(),
+  membersRaw: z.string().min(1, "At least one member is required"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -23,12 +24,13 @@ export function CreateAccountDialog() {
   const { mutate, isPending } = useCreateAccount();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", initialBalance: "0" },
+    defaultValues: { name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam" },
   });
 
   function onSubmit(data: FormData) {
-    mutate({ ...data, initialBalance: data.initialBalance || "0" }, {
-      onSuccess: () => { reset({ name: "", initialBalance: "0" }); setOpen(false); },
+    const members = data.membersRaw.split(",").map(s => s.trim()).filter(Boolean);
+    mutate({ name: data.name, initialBalance: data.initialBalance || "0", members }, {
+      onSuccess: () => { reset({ name: "", initialBalance: "0", membersRaw: "Wil, Wyn, Bam" }); setOpen(false); },
     });
   }
 
@@ -50,6 +52,12 @@ export function CreateAccountDialog() {
           <div className="space-y-2">
             <Label htmlFor="initialBalance">Initial Balance (₱)</Label>
             <Input id="initialBalance" type="number" step="0.01" placeholder="0.00" {...register("initialBalance")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="membersRaw">Members</Label>
+            <Input id="membersRaw" placeholder="Wil, Wyn, Bam" {...register("membersRaw")} />
+            <p className="text-xs text-muted-foreground">Comma-separated names of account members.</p>
+            {errors.membersRaw && <p className="text-sm text-destructive">{errors.membersRaw.message}</p>}
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Creating…" : "Create Account"}

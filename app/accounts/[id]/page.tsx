@@ -2,7 +2,7 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +29,10 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
     if (confirm(`Delete "${account.name}" and all its transactions?`)) {
       deleteAccount(account.id, { onSuccess: () => router.push("/") });
     }
+  }
+
+  function handleExport() {
+    window.location.href = `/api/accounts/${accountId}/export`;
   }
 
   if (isLoading) {
@@ -61,7 +65,10 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <AddTransactionDialog accountId={accountId} />
+          <AddTransactionDialog accountId={accountId} members={account.members} />
+          <Button variant="outline" size="sm" onClick={handleExport}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
           <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4" /> Delete
           </Button>
@@ -93,7 +100,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
           <h2 className="text-lg font-semibold">Transaction History</h2>
           <span className="text-sm text-muted-foreground">{transactions.length} transactions</span>
         </div>
-        <TransactionHistory accountId={accountId} transactions={transactions} />
+        <TransactionHistory accountId={accountId} transactions={transactions} members={account.members} />
       </div>
     </div>
   );

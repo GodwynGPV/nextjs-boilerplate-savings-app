@@ -4,11 +4,18 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EditTransactionDialog } from "./edit-transaction-dialog";
 import { useDeleteTransaction } from "@/hooks/use-transactions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Transaction } from "@/lib/db/schema";
 
-export function TransactionHistory({ accountId, transactions }: { accountId: number; transactions: Transaction[] }) {
+interface Props {
+  accountId: number;
+  transactions: Transaction[];
+  members: string[];
+}
+
+export function TransactionHistory({ accountId, transactions, members }: Props) {
   const { mutate: deleteTransaction } = useDeleteTransaction(accountId);
 
   if (!transactions.length) {
@@ -33,10 +40,11 @@ export function TransactionHistory({ accountId, transactions }: { accountId: num
                 <p className="text-xs text-muted-foreground mt-0.5">{formatDate(txn.date)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-semibold ${txn.type === "interest" ? "text-green-600" : ""}`}>
+            <div className="flex items-center gap-1">
+              <span className={`text-sm font-semibold mr-1 ${txn.type === "interest" ? "text-green-600" : ""}`}>
                 +{formatCurrency(parseFloat(txn.amount))}
               </span>
+              <EditTransactionDialog accountId={accountId} transaction={txn} members={members} />
               <Button
                 variant="ghost"
                 size="icon"
