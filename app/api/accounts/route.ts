@@ -3,8 +3,13 @@ import { getAllAccounts, createAccount } from "@/lib/db/queries";
 import { insertAccountSchema } from "@/lib/db/schema";
 
 export async function GET() {
-  const accounts = await getAllAccounts();
-  return Response.json(accounts);
+  try {
+    const accounts = await getAllAccounts();
+    return Response.json(accounts);
+  } catch (err) {
+    console.error("GET /api/accounts failed:", err);
+    return Response.json({ error: "Failed to load accounts" }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {

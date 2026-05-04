@@ -7,7 +7,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { formatCurrency } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { data: accounts, isLoading } = useAccounts();
+  const { data: accounts, isLoading, isError } = useAccounts();
 
   const totalBalance = accounts?.reduce((s, a) => s + a.analytics.totalBalance, 0) ?? 0;
 
@@ -25,6 +25,10 @@ export default function DashboardPage() {
         </div>
         <CreateAccountDialog />
       </div>
+
+      {isError && (
+        <p className="text-sm text-destructive">Failed to load accounts. Please try refreshing.</p>
+      )}
 
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
