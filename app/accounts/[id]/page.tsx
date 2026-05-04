@@ -1,17 +1,18 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Trash2, Download, Pencil, Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { StatCard } from "@/components/stats/stat-card";
 import { OwnershipChart } from "@/components/charts/ownership-chart";
 import { ContributionChart } from "@/components/charts/contribution-chart";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
 import { TransactionHistory } from "@/components/transactions/transaction-history";
-import { useAccount, useDeleteAccount } from "@/hooks/use-accounts";
+import { useAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
 import { formatCurrency } from "@/lib/utils";
 
@@ -23,6 +24,30 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
   const { data: account, isLoading } = useAccount(accountId);
   const { data: transactions = [] } = useTransactions(accountId);
   const { mutate: deleteAccount } = useDeleteAccount();
+  const { mutate: updateAccount, isPending: isUpdating } = useUpdateAccount();
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+
+  function startEditName() {
+    if (!account) return;
+    setNameValue(account.name);
+    setEditingName(true);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+  }
+
+  function saveEditName() {
+    if (!account || !nameValue.trim()) return;
+    updateAccount({ id: account.id, name: nameValue.trim() }, { onSuccess: () => setEditingName(false) });
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") saveEditName();
+    if (e.key === "Escape") cancelEditName();
+  }
 
   function handleDelete() {
     if (!account) return;
@@ -58,7 +83,31 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">{account.name}</h1>
+            {editingName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  autoFocus
+                  value={nameValue}
+                  onChange={e => setNameValue(e.target.value)}
+                  onKeyDown={handleNameKeyDown}
+                  className="text-2xl font-bold h-auto py-0 px-1 w-56"
+                  disabled={isUpdating}
+                />
+                <Button variant="ghost" size="icon" onClick={saveEditName} disabled={isUpdating || !nameValue.trim()}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={cancelEditName} disabled={isUpdating}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 group">
+                <h1 className="text-2xl font-bold">{account.name}</h1>
+                <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={startEditName}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
             <p className="text-muted-foreground text-sm">
               {formatCurrency(analytics.totalBalance)} total balance
             </p>

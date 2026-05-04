@@ -126,6 +126,11 @@ export async function createAccount(data: { name: string; initialBalance?: strin
   return acc;
 }
 
+export async function updateAccount(id: number, data: { name?: string }) {
+  const [acc] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
+  return acc;
+}
+
 export async function deleteAccount(id: number) {
   await db.delete(transactions).where(eq(transactions.accountId, id));
   await db.delete(accounts).where(eq(accounts.id, id));

@@ -53,6 +53,10 @@ export const updateTransactionSchema = z.object({
   date: z.string().optional(),
 });
 
+export const updateAccountSchema = z.object({
+  name: z.string().min(1).transform(s => s.trim()),
+});
+
 export type Account = typeof accounts.$inferSelect;
 export type InsertAccount = z.infer<typeof insertAccountSchema>;
 export type Transaction = typeof transactions.$inferSelect;
