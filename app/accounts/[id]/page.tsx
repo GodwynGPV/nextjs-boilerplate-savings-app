@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { StatCard } from "@/components/stats/stat-card";
+import { QuarterlyLimitCard } from "@/components/stats/quarterly-limit-card";
+import { QuarterlyLog } from "@/components/stats/quarterly-log";
 import { OwnershipChart } from "@/components/charts/ownership-chart";
 import { ContributionChart } from "@/components/charts/contribution-chart";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
@@ -139,12 +141,31 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             trendLabel="MoM"
           />
         )}
+        <QuarterlyLimitCard accountId={accountId} limit={analytics.quarterly.limit} />
+        {analytics.quarterly.current.remaining === null ? (
+          <StatCard
+            label={`Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year} Deposited`}
+            value={analytics.quarterly.current.deposited}
+          />
+        ) : (
+          <StatCard
+            label={`Remaining Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year}`}
+            value={analytics.quarterly.current.remaining}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <OwnershipChart analytics={analytics} />
         <ContributionChart analytics={analytics} />
       </div>
+
+      <QuarterlyLog
+        history={analytics.quarterly.history}
+        limit={analytics.quarterly.limit}
+        currentYear={analytics.quarterly.current.year}
+        currentQuarter={analytics.quarterly.current.quarter}
+      />
 
       <Separator />
 

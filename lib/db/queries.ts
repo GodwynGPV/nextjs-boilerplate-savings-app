@@ -1,14 +1,60 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./index";
-import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics } from "./schema";
+import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics, type QuarterStats } from "./schema";
 
 const OWNER_TAX_RATE = 0.30;
+
+function quarterOf(date: Date): number {
+  return Math.floor(date.getMonth() / 3) + 1;
+}
+
+function computeQuarterly(
+  deposits: { amount: number; date: Date }[],
+  limit: number | null,
+): AccountAnalytics["quarterly"] {
+  const buckets = new Map<string, QuarterStats>();
+  for (const d of deposits) {
+    const year = d.date.getFullYear();
+    const quarter = quarterOf(d.date);
+    const key = `${year}-${quarter}`;
+    const existing = buckets.get(key);
+    if (existing) existing.deposited += d.amount;
+    else buckets.set(key, { year, quarter, deposited: d.amount });
+  }
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentQuarter = quarterOf(now);
+  const currentKey = `${currentYear}-${currentQuarter}`;
+  if (!buckets.has(currentKey)) {
+    buckets.set(currentKey, { year: currentYear, quarter: currentQuarter, deposited: 0 });
+  }
+
+  const history = Array.from(buckets.values()).sort((a, b) => {
+    if (a.year !== b.year) return b.year - a.year;
+    return b.quarter - a.quarter;
+  });
+
+  const current = buckets.get(currentKey)!;
+
+  return {
+    limit,
+    current: {
+      year: current.year,
+      quarter: current.quarter,
+      deposited: current.deposited,
+      remaining: limit === null ? null : limit - current.deposited,
+    },
+    history,
+  };
+}
 
 function computeAnalytics(
   initialBalance: number,
   members: string[],
   txns: { type: string; depositorName: string | null; amount: number; date: Date }[],
-  owner?: string | null
+  owner?: string | null,
+  quarterlyLimit?: number | null,
 ): AccountAnalytics {
   const sorted = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -93,6 +139,7 @@ function computeAnalytics(
       monthOverMonth: balMonth > 0 ? ((totalBalance - balMonth) / balMonth) * 100 : 0,
       yearOverYear: balYear > 0 ? ((totalBalance - balYear) / balYear) * 100 : 0,
     },
+    quarterly: computeQuarterly(deposits, quarterlyLimit ?? null),
   };
 }
 
@@ -100,7 +147,8 @@ function rowsToAnalytics(
   initialBalance: string,
   members: string[],
   rows: { type: string; depositorName: string | null; amount: string; date: string }[],
-  owner?: string | null
+  owner?: string | null,
+  quarterlyLimit?: string | null,
 ): AccountAnalytics {
   const txns = rows.map(r => ({
     type: r.type,
@@ -108,7 +156,8 @@ function rowsToAnalytics(
     amount: parseFloat(r.amount),
     date: new Date(r.date),
   }));
-  return computeAnalytics(parseFloat(initialBalance), members, txns, owner);
+  const limit = quarterlyLimit == null ? null : parseFloat(quarterlyLimit);
+  return computeAnalytics(parseFloat(initialBalance), members, txns, owner, limit);
 }
 
 export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
@@ -119,7 +168,7 @@ export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
 
   return rows.map(acc => ({
     ...acc,
-    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner),
+    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.quarterlyLimit),
   }));
 }
 
@@ -129,10 +178,10 @@ export async function getAccount(id: number): Promise<AccountWithAnalytics | nul
     with: { transactions: { orderBy: [desc(transactions.date), desc(transactions.createdAt)] } },
   });
   if (!acc) return null;
-  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner) };
+  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.quarterlyLimit) };
 }
 
-export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null }) {
+export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null; quarterlyLimit?: string | null }) {
   const [acc] = await db
     .insert(accounts)
     .values({
@@ -140,12 +189,13 @@ export async function createAccount(data: { name: string; initialBalance?: strin
       initialBalance: data.initialBalance ?? "0",
       members: data.members ?? ["Wil", "Wyn", "Bam"],
       owner: data.owner ?? null,
+      quarterlyLimit: data.quarterlyLimit ?? null,
     })
     .returning();
   return acc;
 }
 
-export async function updateAccount(id: number, data: { name?: string; owner?: string | null }) {
+export async function updateAccount(id: number, data: { name?: string; owner?: string | null; quarterlyLimit?: string | null }) {
   const [acc] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
   return acc;
 }
