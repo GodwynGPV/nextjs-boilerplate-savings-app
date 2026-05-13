@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Pencil, Check, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUpdateAccount } from "@/hooks/use-accounts";
@@ -43,43 +42,54 @@ export function QuarterlyLimitCard({ accountId, limit }: Props) {
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Quarterly Limit</p>
-          {!editing && (
-            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1" onClick={start}>
-              <Pencil className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-        {editing ? (
-          <div className="flex items-center gap-1 mt-1">
-            <Input
-              autoFocus
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="No limit"
-              value={value}
-              onChange={e => setValue(e.target.value)}
-              onKeyDown={onKey}
-              disabled={isPending}
-              className="h-9 text-xl font-bold px-1"
-            />
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={save} disabled={isPending}>
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancel} disabled={isPending}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <p className="text-2xl font-bold mt-1">
-            {limit === null ? <span className="text-muted-foreground">Not set</span> : formatCurrency(limit)}
+    <div className="relative rounded-xl border border-border/60 bg-[var(--tint-violet)] px-5 py-5 overflow-hidden">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--tone-violet)]" />
+          <p className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
+            Quarterly Limit
           </p>
+        </div>
+        {!editing && (
+          <button
+            onClick={start}
+            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/80 transition-colors"
+            aria-label="Edit quarterly limit"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      {editing ? (
+        <div className="flex items-center gap-1 mt-2">
+          <Input
+            autoFocus
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="No limit"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={onKey}
+            disabled={isPending}
+            className="h-9 text-xl font-display px-1 bg-transparent"
+          />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={save} disabled={isPending}>
+            <Check className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={cancel} disabled={isPending}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <p className="font-display text-[1.95rem] leading-tight font-medium mt-2 tabular-nums">
+          {limit === null ? (
+            <span className="text-foreground/35 italic font-normal">Not set</span>
+          ) : (
+            formatCurrency(limit)
+          )}
+        </p>
+      )}
+    </div>
   );
 }

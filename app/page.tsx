@@ -13,13 +13,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Savings Dashboard</h1>
+          <p className="text-[10.5px] uppercase tracking-[0.18em] font-medium text-foreground/55">
+            Overview
+          </p>
+          <h1 className="font-display text-4xl font-medium tracking-tight mt-1">
+            Savings <span className="italic font-normal text-[var(--tone-emerald)]">Dashboard</span>
+          </h1>
           {accounts?.length ? (
-            <p className="text-muted-foreground mt-0.5">
-              Total across all accounts:{" "}
-              <span className="font-semibold text-foreground">{formatCurrency(totalBalance)}</span>
+            <p className="text-muted-foreground mt-1.5 tabular-nums">
+              Total across all accounts ·{" "}
+              <span className="font-semibold text-foreground font-display text-base">{formatCurrency(totalBalance)}</span>
             </p>
           ) : null}
         </div>

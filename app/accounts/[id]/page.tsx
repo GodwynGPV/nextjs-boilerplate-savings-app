@@ -6,7 +6,6 @@ import { ArrowLeft, Trash2, Download, Pencil, Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { StatCard } from "@/components/stats/stat-card";
 import { QuarterlyLimitCard } from "@/components/stats/quarterly-limit-card";
 import { QuarterlyLog } from "@/components/stats/quarterly-log";
@@ -92,7 +91,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
                   value={nameValue}
                   onChange={e => setNameValue(e.target.value)}
                   onKeyDown={handleNameKeyDown}
-                  className="text-2xl font-bold h-auto py-0 px-1 w-56"
+                  className="font-display text-3xl font-medium h-auto py-0 px-1 w-64"
                   disabled={isUpdating}
                 />
                 <Button variant="ghost" size="icon" onClick={saveEditName} disabled={isUpdating || !nameValue.trim()}>
@@ -104,13 +103,13 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
               </div>
             ) : (
               <div className="flex items-center gap-2 group">
-                <h1 className="text-2xl font-bold">{account.name}</h1>
+                <h1 className="font-display text-3xl font-medium tracking-tight">{account.name}</h1>
                 <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={startEditName}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
               </div>
             )}
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm mt-0.5 tabular-nums">
               {formatCurrency(analytics.totalBalance)} total balance
             </p>
           </div>
@@ -127,13 +126,14 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Balance" value={analytics.totalBalance} />
-        <StatCard label="Total Contributions" value={analytics.totalContributions} />
-        <StatCard label="Total Interest" value={analytics.totalInterest} />
+        <StatCard tone="emerald" label="Total Balance" value={analytics.totalBalance} />
+        <StatCard tone="indigo" label="Total Contributions" value={analytics.totalContributions} />
+        <StatCard tone="amber" label="Total Interest" value={analytics.totalInterest} />
         {analytics.ownerTax > 0 ? (
-          <StatCard label={`Owner Tax (${account.owner})`} value={analytics.ownerTax} />
+          <StatCard tone="rust" label={`Owner Tax (${account.owner})`} value={analytics.ownerTax} />
         ) : (
           <StatCard
+            tone="rust"
             label="Monthly Growth"
             value={analytics.growth.monthOverMonth}
             isCurrency={false}
@@ -144,16 +144,19 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         <QuarterlyLimitCard accountId={accountId} limit={analytics.quarterly.limit} />
         {analytics.quarterly.current.remaining === null ? (
           <StatCard
+            tone="sky"
             label={`Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year} Deposited`}
             value={analytics.quarterly.current.deposited}
           />
         ) : (
           <StatCard
+            tone="sky"
             label={`Remaining Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year}`}
             value={analytics.quarterly.current.remaining}
           />
         )}
         <StatCard
+          tone="slate"
           label={`Avg Daily Balance (Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year})`}
           value={analytics.averageDailyBalance}
         />
@@ -171,12 +174,17 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         currentQuarter={analytics.quarterly.current.quarter}
       />
 
-      <Separator />
-
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Transaction History</h2>
-          <span className="text-sm text-muted-foreground">{transactions.length} transactions</span>
+        <div className="flex items-end justify-between mb-4">
+          <div>
+            <p className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
+              Activity
+            </p>
+            <h2 className="font-display text-xl font-medium tracking-tight mt-0.5">
+              Transaction History
+            </h2>
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">{transactions.length} total</span>
         </div>
         <TransactionHistory accountId={accountId} transactions={transactions} members={account.members} />
       </div>

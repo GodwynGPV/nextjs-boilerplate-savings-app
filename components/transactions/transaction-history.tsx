@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -77,7 +76,7 @@ export function TransactionHistory({ accountId, transactions, members }: Props) 
             Clear
           </Button>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">
+        <span className="text-xs text-muted-foreground ml-auto tabular-nums">
           {hasFilter ? `${filtered.length} of ${transactions.length}` : `${transactions.length}`} shown
         </span>
       </div>
@@ -87,41 +86,49 @@ export function TransactionHistory({ accountId, transactions, members }: Props) 
           {transactions.length === 0 ? "No transactions yet." : "No transactions match these filters."}
         </p>
       ) : (
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-2 pr-4">
-            {filtered.map(txn => (
-              <div key={txn.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                <div className="flex items-center gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={txn.type === "interest" ? "secondary" : "default"} className="text-xs capitalize">
-                        {txn.type}
-                      </Badge>
-                      {txn.depositorName && (
-                        <span className="text-sm font-medium">{txn.depositorName}</span>
-                      )}
+        <ScrollArea className="h-[400px] rounded-xl border border-border/60 bg-card">
+          <div className="divide-y divide-border/60">
+            {filtered.map(txn => {
+              const isInterest = txn.type === "interest";
+              return (
+                <div key={txn.id} className="flex items-center justify-between px-4 py-3 group">
+                  <div className="flex items-center gap-3">
+                    <span className={`h-2 w-2 rounded-full ${isInterest ? "bg-[var(--tone-amber)]" : "bg-[var(--tone-indigo)]"}`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] uppercase tracking-[0.14em] font-semibold ${
+                          isInterest ? "text-[var(--tone-amber)]" : "text-[var(--tone-indigo)]"
+                        }`}>
+                          {txn.type}
+                        </span>
+                        {txn.depositorName && (
+                          <span className="text-sm font-medium">{txn.depositorName}</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">{formatDate(txn.date)}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(txn.date)}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={`font-display text-base font-medium mr-1 tabular-nums ${
+                      isInterest ? "text-[var(--tone-emerald)]" : ""
+                    }`}>
+                      +{formatCurrency(parseFloat(txn.amount))}
+                    </span>
+                    <EditTransactionDialog accountId={accountId} transaction={txn} members={members} />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => {
+                        if (confirm("Delete this transaction?")) deleteTransaction(txn.id);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className={`text-sm font-semibold mr-1 ${txn.type === "interest" ? "text-green-600" : ""}`}>
-                    +{formatCurrency(parseFloat(txn.amount))}
-                  </span>
-                  <EditTransactionDialog accountId={accountId} transaction={txn} members={members} />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      if (confirm("Delete this transaction?")) deleteTransaction(txn.id);
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       )}

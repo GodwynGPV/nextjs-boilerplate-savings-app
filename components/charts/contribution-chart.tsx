@@ -17,20 +17,45 @@ export function ContributionChart({ analytics }: { analytics: AccountAnalytics }
   if (!data.length) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium">Contributions vs Interest</CardTitle>
+    <Card className="border-border/60">
+      <CardHeader className="pb-2">
+        <CardTitle className="font-display text-lg font-medium tracking-tight">
+          Contributions vs Interest
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `₱${(v / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-            <Legend />
-            <Bar dataKey="Contributions" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="Interest" fill="#22c55e" radius={[4, 4, 0, 0]} />
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" vertical={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+              tickFormatter={v => `₱${(v / 1000).toFixed(0)}k`}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              formatter={(v) => formatCurrency(Number(v))}
+              cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+              contentStyle={{
+                background: "var(--card)",
+                border: "1px solid var(--border)",
+                borderRadius: "0.5rem",
+                fontSize: "0.75rem",
+              }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: "0.75rem", paddingTop: "0.5rem" }}
+              iconType="circle"
+              iconSize={8}
+            />
+            <Bar dataKey="Contributions" fill="var(--tone-indigo)" radius={[6, 6, 0, 0]} />
+            <Bar dataKey="Interest" fill="var(--tone-amber)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
