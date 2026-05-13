@@ -14,16 +14,13 @@ function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function computeAverageDailyBalance(
+function adbOverPeriod(
   initialBalance: number,
   txns: { amount: number; date: Date }[],
-  year: number,
-  quarter: number,
+  periodStart: Date,
+  periodEnd: Date,
 ): number {
-  const periodStart = new Date(year, (quarter - 1) * 3, 1);
-  const periodEnd = startOfDay(new Date());
   if (periodEnd.getTime() < periodStart.getTime()) return 0;
-
   const totalDays = Math.floor((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1;
 
   let balance = initialBalance;
@@ -49,6 +46,17 @@ function computeAverageDailyBalance(
   }
 
   return sum / totalDays;
+}
+
+function computeQuarterlyADB(
+  initialBalance: number,
+  txns: { amount: number; date: Date }[],
+  year: number,
+  quarter: number,
+): number {
+  const periodStart = new Date(year, (quarter - 1) * 3, 1);
+  const periodEnd = startOfDay(new Date());
+  return adbOverPeriod(initialBalance, txns, periodStart, periodEnd);
 }
 
 function computeQuarterly(
@@ -173,12 +181,41 @@ function computeAnalytics(
   const balYear = balanceAtDate(oneYearAgo);
 
   const quarterly = computeQuarterly(deposits, quarterlyLimit ?? null);
-  const averageDailyBalance = computeAverageDailyBalance(
+  const sortedAmountDate = sorted.map(t => ({ amount: t.amount, date: t.date }));
+  const averageDailyBalance = computeQuarterlyADB(
     initialBalance,
-    sorted.map(t => ({ amount: t.amount, date: t.date })),
+    sortedAmountDate,
     quarterly.current.year,
     quarterly.current.quarter,
   );
+
+  // Quarter-over-Quarter: balance at end of previous quarter vs current balance
+  const currQStart = new Date(quarterly.current.year, (quarterly.current.quarter - 1) * 3, 1);
+  const prevQEnd = new Date(currQStart.getTime() - MS_PER_DAY);
+  const balPrevQ = balanceAtDate(prevQEnd);
+  const quarterOverQuarter = balPrevQ > 0
+    ? ((totalBalance - balPrevQ) / balPrevQ) * 100
+    : sorted.length > 0 && sorted[0].date.getTime() < currQStart.getTime() ? 0 : null;
+
+  // Last interest
+  const lastInterestTxn = interests.length > 0 ? interests[interests.length - 1] : null;
+  const lastInterest = lastInterestTxn
+    ? { date: lastInterestTxn.date.toISOString().slice(0, 10), amount: lastInterestTxn.amount }
+    : null;
+
+  // Effective yield = annualized return based on all-time ADB
+  let effectiveYield: number | null = null;
+  if (sorted.length > 0 && totalInterest > 0) {
+    const firstDate = startOfDay(sorted[0].date);
+    const today = startOfDay(new Date());
+    const days = Math.floor((today.getTime() - firstDate.getTime()) / MS_PER_DAY) + 1;
+    if (days >= 30) {
+      const allTimeADB = adbOverPeriod(initialBalance, sortedAmountDate, firstDate, today);
+      if (allTimeADB > 0) {
+        effectiveYield = (totalInterest / allTimeADB) * (365 / days) * 100;
+      }
+    }
+  }
 
   return {
     totalBalance,
@@ -189,9 +226,12 @@ function computeAnalytics(
     growth: {
       monthOverMonth: balMonth > 0 ? ((totalBalance - balMonth) / balMonth) * 100 : 0,
       yearOverYear: balYear > 0 ? ((totalBalance - balYear) / balYear) * 100 : 0,
+      quarterOverQuarter,
     },
     quarterly,
     averageDailyBalance,
+    lastInterest,
+    effectiveYield,
   };
 }
 

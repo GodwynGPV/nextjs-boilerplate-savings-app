@@ -90,6 +90,7 @@ export interface AccountAnalytics {
   growth: {
     monthOverMonth: number;
     yearOverYear: number;
+    quarterOverQuarter: number | null;
   };
   quarterly: {
     limit: number | null;
@@ -102,6 +103,8 @@ export interface AccountAnalytics {
     history: QuarterStats[];
   };
   averageDailyBalance: number;
+  lastInterest: { date: string; amount: number } | null;
+  effectiveYield: number | null;
 }
 
 export interface AccountWithAnalytics extends Account {

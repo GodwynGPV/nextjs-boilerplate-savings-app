@@ -15,7 +15,15 @@ import { AddTransactionDialog } from "@/components/transactions/add-transaction-
 import { TransactionHistory } from "@/components/transactions/transaction-history";
 import { useAccount, useDeleteAccount, useUpdateAccount } from "@/hooks/use-accounts";
 import { useTransactions } from "@/hooks/use-transactions";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10.5px] uppercase tracking-[0.18em] font-medium text-foreground/55">
+      {children}
+    </p>
+  );
+}
 
 export default function AccountPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -125,42 +133,88 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard tone="emerald" label="Total Balance" value={analytics.totalBalance} />
-        <StatCard tone="indigo" label="Total Contributions" value={analytics.totalContributions} />
-        <StatCard tone="amber" label="Total Interest" value={analytics.totalInterest} />
-        {analytics.ownerTax > 0 ? (
-          <StatCard tone="rust" label={`Owner Tax (${account.owner})`} value={analytics.ownerTax} />
-        ) : (
+      <section className="space-y-3">
+        <SectionEyebrow>At a Glance</SectionEyebrow>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            tone="emerald"
+            size="hero"
+            label="Total Balance"
+            value={analytics.totalBalance}
+            className="col-span-2"
+          />
+          <StatCard
+            tone="amber"
+            label="Last Interest"
+            value={analytics.lastInterest?.amount ?? null}
+            emptyLabel="None yet"
+          >
+            {analytics.lastInterest && (
+              <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
+                {formatDate(analytics.lastInterest.date)}
+              </p>
+            )}
+          </StatCard>
+          <StatCard
+            tone={
+              analytics.growth.quarterOverQuarter === null
+                ? "slate"
+                : analytics.growth.quarterOverQuarter >= 0
+                  ? "emerald"
+                  : "rust"
+            }
+            label="QoQ Growth"
+            value={analytics.growth.quarterOverQuarter}
+            format="delta-percent"
+            emptyLabel="—"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <SectionEyebrow>Composition</SectionEyebrow>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard tone="indigo" label="Total Contributions" value={analytics.totalContributions} />
+          <StatCard tone="amber" label="Total Interest" value={analytics.totalInterest} />
           <StatCard
             tone="rust"
-            label="Monthly Growth"
-            value={analytics.growth.monthOverMonth}
-            isCurrency={false}
-            trend={analytics.growth.monthOverMonth}
-            trendLabel="MoM"
+            label={account.owner ? `Owner Tax (${account.owner})` : "Owner Tax"}
+            value={analytics.ownerTax}
           />
-        )}
-        <QuarterlyLimitCard accountId={accountId} limit={analytics.quarterly.limit} />
-        {analytics.quarterly.current.remaining === null ? (
           <StatCard
-            tone="sky"
-            label={`Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year} Deposited`}
+            tone="violet"
+            label="Effective Yield (APY)"
+            value={analytics.effectiveYield}
+            format="percent"
+            emptyLabel="—"
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <SectionEyebrow>
+          This Quarter <span className="text-foreground/40">·</span> Q{analytics.quarterly.current.quarter} {analytics.quarterly.current.year}
+        </SectionEyebrow>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <QuarterlyLimitCard accountId={accountId} limit={analytics.quarterly.limit} />
+          <StatCard
+            tone="indigo"
+            label="Deposited"
             value={analytics.quarterly.current.deposited}
           />
-        ) : (
           <StatCard
             tone="sky"
-            label={`Remaining Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year}`}
+            label="Remaining"
             value={analytics.quarterly.current.remaining}
+            emptyLabel="No limit"
           />
-        )}
-        <StatCard
-          tone="slate"
-          label={`Avg Daily Balance (Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year})`}
-          value={analytics.averageDailyBalance}
-        />
-      </div>
+          <StatCard
+            tone="slate"
+            label="Avg Daily Balance"
+            value={analytics.averageDailyBalance}
+          />
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <OwnershipChart analytics={analytics} />
