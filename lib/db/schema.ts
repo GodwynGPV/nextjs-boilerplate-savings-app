@@ -101,6 +101,7 @@ export interface AccountAnalytics {
     };
     history: QuarterStats[];
   };
+  averageDailyBalance: number;
 }
 
 export interface AccountWithAnalytics extends Account {

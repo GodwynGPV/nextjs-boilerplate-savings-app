@@ -4,8 +4,51 @@ import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytic
 
 const OWNER_TAX_RATE = 0.30;
 
+const MS_PER_DAY = 86_400_000;
+
 function quarterOf(date: Date): number {
   return Math.floor(date.getMonth() / 3) + 1;
+}
+
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function computeAverageDailyBalance(
+  initialBalance: number,
+  txns: { amount: number; date: Date }[],
+  year: number,
+  quarter: number,
+): number {
+  const periodStart = new Date(year, (quarter - 1) * 3, 1);
+  const periodEnd = startOfDay(new Date());
+  if (periodEnd.getTime() < periodStart.getTime()) return 0;
+
+  const totalDays = Math.floor((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1;
+
+  let balance = initialBalance;
+  const periodTxns: { time: number; amount: number }[] = [];
+  for (const t of txns) {
+    const day = startOfDay(t.date);
+    if (day.getTime() < periodStart.getTime()) {
+      balance += t.amount;
+    } else if (day.getTime() <= periodEnd.getTime()) {
+      periodTxns.push({ time: day.getTime(), amount: t.amount });
+    }
+  }
+  periodTxns.sort((a, b) => a.time - b.time);
+
+  let sum = 0;
+  let idx = 0;
+  for (let t = periodStart.getTime(); t <= periodEnd.getTime(); t += MS_PER_DAY) {
+    while (idx < periodTxns.length && periodTxns[idx].time === t) {
+      balance += periodTxns[idx].amount;
+      idx++;
+    }
+    sum += balance;
+  }
+
+  return sum / totalDays;
 }
 
 function computeQuarterly(
@@ -129,6 +172,14 @@ function computeAnalytics(
   const balMonth = balanceAtDate(oneMonthAgo);
   const balYear = balanceAtDate(oneYearAgo);
 
+  const quarterly = computeQuarterly(deposits, quarterlyLimit ?? null);
+  const averageDailyBalance = computeAverageDailyBalance(
+    initialBalance,
+    sorted.map(t => ({ amount: t.amount, date: t.date })),
+    quarterly.current.year,
+    quarterly.current.quarter,
+  );
+
   return {
     totalBalance,
     totalInterest,
@@ -139,7 +190,8 @@ function computeAnalytics(
       monthOverMonth: balMonth > 0 ? ((totalBalance - balMonth) / balMonth) * 100 : 0,
       yearOverYear: balYear > 0 ? ((totalBalance - balYear) / balYear) * 100 : 0,
     },
-    quarterly: computeQuarterly(deposits, quarterlyLimit ?? null),
+    quarterly,
+    averageDailyBalance,
   };
 }
 

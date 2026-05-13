@@ -153,6 +153,10 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             value={analytics.quarterly.current.remaining}
           />
         )}
+        <StatCard
+          label={`Avg Daily Balance (Q${analytics.quarterly.current.quarter} ${analytics.quarterly.current.year})`}
+          value={analytics.averageDailyBalance}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
