@@ -1,17 +1,28 @@
 import { eq, desc } from "drizzle-orm";
 import { db } from "./index";
-import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics, type QuarterStats } from "./schema";
+import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics, type HalfYearStats } from "./schema";
 
 const OWNER_TAX_RATE = 0.30;
+const ANNUAL_INTEREST_RATE = 0.17;
 
 const MS_PER_DAY = 86_400_000;
+const HALF_YEAR_MONTHS = 6;
 
-function quarterOf(date: Date): number {
-  return Math.floor(date.getMonth() / 3) + 1;
+function halfOf(date: Date): 1 | 2 {
+  return date.getMonth() < 6 ? 1 : 2;
 }
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function halfStart(year: number, half: 1 | 2): Date {
+  return new Date(year, half === 1 ? 0 : 6, 1);
+}
+
+function halfEnd(year: number, half: 1 | 2): Date {
+  // last day of June (half 1) or December (half 2)
+  return new Date(year, half === 1 ? 6 : 12, 0);
 }
 
 function adbOverPeriod(
@@ -48,42 +59,54 @@ function adbOverPeriod(
   return sum / totalDays;
 }
 
-function computeQuarterlyADB(
+function computeAverageMonthlyBalance(
   initialBalance: number,
   txns: { amount: number; date: Date }[],
   year: number,
-  quarter: number,
+  half: 1 | 2,
 ): number {
-  const periodStart = new Date(year, (quarter - 1) * 3, 1);
-  const periodEnd = startOfDay(new Date());
-  return adbOverPeriod(initialBalance, txns, periodStart, periodEnd);
+  const periodStart = halfStart(year, half);
+  const today = startOfDay(new Date());
+  const monthsToCover: { start: Date; end: Date }[] = [];
+  for (let i = 0; i < HALF_YEAR_MONTHS; i++) {
+    const mStart = new Date(periodStart.getFullYear(), periodStart.getMonth() + i, 1);
+    if (mStart.getTime() > today.getTime()) break;
+    const mEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + i + 1, 0);
+    const effectiveEnd = mEnd.getTime() > today.getTime() ? today : mEnd;
+    monthsToCover.push({ start: mStart, end: effectiveEnd });
+  }
+  if (monthsToCover.length === 0) return 0;
+  const monthlyAvgs = monthsToCover.map(({ start, end }) =>
+    adbOverPeriod(initialBalance, txns, start, end),
+  );
+  return monthlyAvgs.reduce((s, v) => s + v, 0) / monthlyAvgs.length;
 }
 
-function computeQuarterly(
+function computeBiannual(
   deposits: { amount: number; date: Date }[],
   limit: number | null,
-): AccountAnalytics["quarterly"] {
-  const buckets = new Map<string, QuarterStats>();
+): AccountAnalytics["biannual"] {
+  const buckets = new Map<string, HalfYearStats>();
   for (const d of deposits) {
     const year = d.date.getFullYear();
-    const quarter = quarterOf(d.date);
-    const key = `${year}-${quarter}`;
+    const half = halfOf(d.date);
+    const key = `${year}-${half}`;
     const existing = buckets.get(key);
     if (existing) existing.deposited += d.amount;
-    else buckets.set(key, { year, quarter, deposited: d.amount });
+    else buckets.set(key, { year, half, deposited: d.amount });
   }
 
   const now = new Date();
   const currentYear = now.getFullYear();
-  const currentQuarter = quarterOf(now);
-  const currentKey = `${currentYear}-${currentQuarter}`;
+  const currentHalf = halfOf(now);
+  const currentKey = `${currentYear}-${currentHalf}`;
   if (!buckets.has(currentKey)) {
-    buckets.set(currentKey, { year: currentYear, quarter: currentQuarter, deposited: 0 });
+    buckets.set(currentKey, { year: currentYear, half: currentHalf, deposited: 0 });
   }
 
   const history = Array.from(buckets.values()).sort((a, b) => {
     if (a.year !== b.year) return b.year - a.year;
-    return b.quarter - a.quarter;
+    return b.half - a.half;
   });
 
   const current = buckets.get(currentKey)!;
@@ -92,7 +115,7 @@ function computeQuarterly(
     limit,
     current: {
       year: current.year,
-      quarter: current.quarter,
+      half: current.half,
       deposited: current.deposited,
       remaining: limit === null ? null : limit - current.deposited,
     },
@@ -105,7 +128,7 @@ function computeAnalytics(
   members: string[],
   txns: { type: string; depositorName: string | null; amount: number; date: Date }[],
   owner?: string | null,
-  quarterlyLimit?: number | null,
+  biannualLimit?: number | null,
 ): AccountAnalytics {
   const sorted = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -180,22 +203,22 @@ function computeAnalytics(
   const balMonth = balanceAtDate(oneMonthAgo);
   const balYear = balanceAtDate(oneYearAgo);
 
-  const quarterly = computeQuarterly(deposits, quarterlyLimit ?? null);
+  const biannual = computeBiannual(deposits, biannualLimit ?? null);
   const sortedAmountDate = sorted.map(t => ({ amount: t.amount, date: t.date }));
-  const averageDailyBalance = computeQuarterlyADB(
+  const averageMonthlyBalance = computeAverageMonthlyBalance(
     initialBalance,
     sortedAmountDate,
-    quarterly.current.year,
-    quarterly.current.quarter,
+    biannual.current.year,
+    biannual.current.half,
   );
 
-  // Quarter-over-Quarter: balance at end of previous quarter vs current balance
-  const currQStart = new Date(quarterly.current.year, (quarterly.current.quarter - 1) * 3, 1);
-  const prevQEnd = new Date(currQStart.getTime() - MS_PER_DAY);
-  const balPrevQ = balanceAtDate(prevQEnd);
-  const quarterOverQuarter = balPrevQ > 0
-    ? ((totalBalance - balPrevQ) / balPrevQ) * 100
-    : sorted.length > 0 && sorted[0].date.getTime() < currQStart.getTime() ? 0 : null;
+  // Half-over-Half: balance at end of previous half vs current balance
+  const currHalfStart = halfStart(biannual.current.year, biannual.current.half);
+  const prevHalfEnd = new Date(currHalfStart.getTime() - MS_PER_DAY);
+  const balPrevHalf = balanceAtDate(prevHalfEnd);
+  const halfOverHalf = balPrevHalf > 0
+    ? ((totalBalance - balPrevHalf) / balPrevHalf) * 100
+    : sorted.length > 0 && sorted[0].date.getTime() < currHalfStart.getTime() ? 0 : null;
 
   // Last interest
   const lastInterestTxn = interests.length > 0 ? interests[interests.length - 1] : null;
@@ -217,6 +240,20 @@ function computeAnalytics(
     }
   }
 
+  // Projected interest for the current half-year at the annual rate.
+  // halfYearTarget = avgMonthlyBalance * (rate / 2)
+  const halfYearTarget = averageMonthlyBalance * (ANNUAL_INTEREST_RATE / 2);
+  const currHalfEndDate = halfEnd(biannual.current.year, biannual.current.half);
+  const earnedThisHalf = interests
+    .filter(t => t.date >= currHalfStart && t.date <= currHalfEndDate)
+    .reduce((s, t) => s + t.amount, 0);
+  const projectedInterest = {
+    annualRate: ANNUAL_INTEREST_RATE,
+    halfYearTarget,
+    earnedThisHalf,
+    remaining: Math.max(0, halfYearTarget - earnedThisHalf),
+  };
+
   return {
     totalBalance,
     totalInterest,
@@ -226,10 +263,11 @@ function computeAnalytics(
     growth: {
       monthOverMonth: balMonth > 0 ? ((totalBalance - balMonth) / balMonth) * 100 : 0,
       yearOverYear: balYear > 0 ? ((totalBalance - balYear) / balYear) * 100 : 0,
-      quarterOverQuarter,
+      halfOverHalf,
     },
-    quarterly,
-    averageDailyBalance,
+    biannual,
+    averageMonthlyBalance,
+    projectedInterest,
     lastInterest,
     effectiveYield,
   };
@@ -240,7 +278,7 @@ function rowsToAnalytics(
   members: string[],
   rows: { type: string; depositorName: string | null; amount: string; date: string }[],
   owner?: string | null,
-  quarterlyLimit?: string | null,
+  biannualLimit?: string | null,
 ): AccountAnalytics {
   const txns = rows.map(r => ({
     type: r.type,
@@ -248,7 +286,7 @@ function rowsToAnalytics(
     amount: parseFloat(r.amount),
     date: new Date(r.date),
   }));
-  const limit = quarterlyLimit == null ? null : parseFloat(quarterlyLimit);
+  const limit = biannualLimit == null ? null : parseFloat(biannualLimit);
   return computeAnalytics(parseFloat(initialBalance), members, txns, owner, limit);
 }
 
@@ -260,7 +298,7 @@ export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
 
   return rows.map(acc => ({
     ...acc,
-    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.quarterlyLimit),
+    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit),
   }));
 }
 
@@ -270,10 +308,10 @@ export async function getAccount(id: number): Promise<AccountWithAnalytics | nul
     with: { transactions: { orderBy: [desc(transactions.date), desc(transactions.createdAt)] } },
   });
   if (!acc) return null;
-  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.quarterlyLimit) };
+  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit) };
 }
 
-export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null; quarterlyLimit?: string | null }) {
+export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null; biannualLimit?: string | null }) {
   const [acc] = await db
     .insert(accounts)
     .values({
@@ -281,13 +319,13 @@ export async function createAccount(data: { name: string; initialBalance?: strin
       initialBalance: data.initialBalance ?? "0",
       members: data.members ?? ["Wil", "Wyn", "Bam"],
       owner: data.owner ?? null,
-      quarterlyLimit: data.quarterlyLimit ?? null,
+      biannualLimit: data.biannualLimit ?? null,
     })
     .returning();
   return acc;
 }
 
-export async function updateAccount(id: number, data: { name?: string; owner?: string | null; quarterlyLimit?: string | null }) {
+export async function updateAccount(id: number, data: { name?: string; owner?: string | null; biannualLimit?: string | null }) {
   const [acc] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
   return acc;
 }

@@ -12,7 +12,7 @@ interface Props {
   limit: number | null;
 }
 
-export function QuarterlyLimitCard({ accountId, limit }: Props) {
+export function BiannualLimitCard({ accountId, limit }: Props) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const { mutate, isPending } = useUpdateAccount();
@@ -31,7 +31,7 @@ export function QuarterlyLimitCard({ accountId, limit }: Props) {
     const parsed = trimmed === "" ? null : Number(trimmed);
     if (parsed !== null && (!Number.isFinite(parsed) || parsed < 0)) return;
     mutate(
-      { id: accountId, quarterlyLimit: parsed === null ? null : String(parsed) },
+      { id: accountId, biannualLimit: parsed === null ? null : String(parsed) },
       { onSuccess: () => setEditing(false) },
     );
   }
@@ -47,14 +47,14 @@ export function QuarterlyLimitCard({ accountId, limit }: Props) {
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--tone-violet)]" />
           <p className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
-            Quarterly Limit
+            Biannual Limit
           </p>
         </div>
         {!editing && (
           <button
             onClick={start}
             className="h-6 w-6 inline-flex items-center justify-center rounded-md text-foreground/40 hover:text-foreground/80 transition-colors"
-            aria-label="Edit quarterly limit"
+            aria-label="Edit biannual limit"
           >
             <Pencil className="h-3 w-3" />
           </button>

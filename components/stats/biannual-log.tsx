@@ -2,26 +2,26 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import type { QuarterStats } from "@/lib/db/schema";
+import type { HalfYearStats } from "@/lib/db/schema";
 
 interface Props {
-  history: QuarterStats[];
+  history: HalfYearStats[];
   limit: number | null;
   currentYear: number;
-  currentQuarter: number;
+  currentHalf: 1 | 2;
 }
 
-function quarterLabel(year: number, quarter: number) {
-  return `Q${quarter} · ${year}`;
+function halfLabel(year: number, half: 1 | 2) {
+  return `H${half} · ${year}`;
 }
 
-export function QuarterlyLog({ history, limit, currentYear, currentQuarter }: Props) {
+export function BiannualLog({ history, limit, currentYear, currentHalf }: Props) {
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="font-display text-lg font-medium tracking-tight">
-            Quarterly Deposits
+            Half-Year Deposits
           </CardTitle>
           {limit !== null && (
             <span className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
@@ -35,19 +35,19 @@ export function QuarterlyLog({ history, limit, currentYear, currentQuarter }: Pr
           <p className="text-sm text-muted-foreground">No deposits yet.</p>
         ) : (
           <div className="space-y-4">
-            {history.map(q => {
-              const isCurrent = q.year === currentYear && q.quarter === currentQuarter;
-              const pct = limit && limit > 0 ? Math.min(100, (q.deposited / limit) * 100) : null;
-              const over = limit !== null && q.deposited > limit;
+            {history.map(h => {
+              const isCurrent = h.year === currentYear && h.half === currentHalf;
+              const pct = limit && limit > 0 ? Math.min(100, (h.deposited / limit) * 100) : null;
+              const over = limit !== null && h.deposited > limit;
               return (
-                <div key={`${q.year}-${q.quarter}`} className="space-y-1.5">
+                <div key={`${h.year}-${h.half}`} className="space-y-1.5">
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="flex items-center gap-2">
                       <span className={`h-1.5 w-1.5 rounded-full ${
                         isCurrent ? "bg-[var(--tone-violet)]" : "bg-foreground/20"
                       }`} />
                       <span className="font-medium tabular-nums">
-                        {quarterLabel(q.year, q.quarter)}
+                        {halfLabel(h.year, h.half)}
                       </span>
                       {isCurrent && (
                         <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--tone-violet)] font-semibold">
@@ -56,7 +56,7 @@ export function QuarterlyLog({ history, limit, currentYear, currentQuarter }: Pr
                       )}
                     </span>
                     <span className={`tabular-nums ${over ? "text-destructive font-semibold" : ""}`}>
-                      <span className="font-display text-base">{formatCurrency(q.deposited)}</span>
+                      <span className="font-display text-base">{formatCurrency(h.deposited)}</span>
                       {limit !== null && (
                         <span className="text-muted-foreground text-xs ml-1">
                           / {formatCurrency(limit)}

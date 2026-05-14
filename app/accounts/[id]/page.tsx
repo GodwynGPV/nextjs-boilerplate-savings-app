@@ -2,13 +2,13 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Download, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, Trash2, Download, Pencil, Check, X, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/stats/stat-card";
-import { QuarterlyLimitCard } from "@/components/stats/quarterly-limit-card";
-import { QuarterlyLog } from "@/components/stats/quarterly-log";
+import { BiannualLimitCard } from "@/components/stats/biannual-limit-card";
+import { BiannualLog } from "@/components/stats/biannual-log";
 import { OwnershipChart } from "@/components/charts/ownership-chart";
 import { ContributionChart } from "@/components/charts/contribution-chart";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
@@ -22,6 +22,34 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
     <p className="text-[10.5px] uppercase tracking-[0.18em] font-medium text-foreground/55">
       {children}
     </p>
+  );
+}
+
+function CollapsibleSection({
+  eyebrow,
+  defaultOpen = false,
+  children,
+}: {
+  eyebrow: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="group flex w-full items-center gap-2 text-left"
+        aria-expanded={open}
+      >
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-foreground/45 transition-transform ${open ? "" : "-rotate-90"}`}
+        />
+        <SectionEyebrow>{eyebrow}</SectionEyebrow>
+      </button>
+      {open && <div className="space-y-3">{children}</div>}
+    </section>
   );
 }
 
@@ -157,22 +185,21 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
           </StatCard>
           <StatCard
             tone={
-              analytics.growth.quarterOverQuarter === null
+              analytics.growth.halfOverHalf === null
                 ? "slate"
-                : analytics.growth.quarterOverQuarter >= 0
+                : analytics.growth.halfOverHalf >= 0
                   ? "emerald"
                   : "rust"
             }
-            label="QoQ Growth"
-            value={analytics.growth.quarterOverQuarter}
+            label="HoH Growth"
+            value={analytics.growth.halfOverHalf}
             format="delta-percent"
             emptyLabel="—"
           />
         </div>
       </section>
 
-      <section className="space-y-3">
-        <SectionEyebrow>Composition</SectionEyebrow>
+      <CollapsibleSection eyebrow="Composition">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard tone="indigo" label="Total Contributions" value={analytics.totalContributions} />
           <StatCard tone="amber" label="Total Interest" value={analytics.totalInterest} />
@@ -189,43 +216,57 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             emptyLabel="—"
           />
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="space-y-3">
-        <SectionEyebrow>
-          This Quarter <span className="text-foreground/40">·</span> Q{analytics.quarterly.current.quarter} {analytics.quarterly.current.year}
-        </SectionEyebrow>
+      <CollapsibleSection
+        eyebrow={
+          <>
+            This Half Year <span className="text-foreground/40">·</span> H{analytics.biannual.current.half} {analytics.biannual.current.year}
+          </>
+        }
+      >
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuarterlyLimitCard accountId={accountId} limit={analytics.quarterly.limit} />
+          <BiannualLimitCard accountId={accountId} limit={analytics.biannual.limit} />
           <StatCard
             tone="indigo"
             label="Deposited"
-            value={analytics.quarterly.current.deposited}
+            value={analytics.biannual.current.deposited}
           />
           <StatCard
             tone="sky"
             label="Remaining"
-            value={analytics.quarterly.current.remaining}
+            value={analytics.biannual.current.remaining}
             emptyLabel="No limit"
           />
           <StatCard
             tone="slate"
-            label="Avg Daily Balance"
-            value={analytics.averageDailyBalance}
+            label="Avg Monthly Balance"
+            value={analytics.averageMonthlyBalance}
           />
         </div>
-      </section>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            tone="amber"
+            label={`Projected Interest (${(analytics.projectedInterest.annualRate * 100).toFixed(0)}% APR)`}
+            value={analytics.projectedInterest.halfYearTarget}
+          >
+            <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
+              {formatCurrency(analytics.projectedInterest.earnedThisHalf)} earned · {formatCurrency(analytics.projectedInterest.remaining)} to go
+            </p>
+          </StatCard>
+        </div>
+      </CollapsibleSection>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <OwnershipChart analytics={analytics} />
         <ContributionChart analytics={analytics} />
       </div>
 
-      <QuarterlyLog
-        history={analytics.quarterly.history}
-        limit={analytics.quarterly.limit}
-        currentYear={analytics.quarterly.current.year}
-        currentQuarter={analytics.quarterly.current.quarter}
+      <BiannualLog
+        history={analytics.biannual.history}
+        limit={analytics.biannual.limit}
+        currentYear={analytics.biannual.current.year}
+        currentHalf={analytics.biannual.current.half}
       />
 
       <div>

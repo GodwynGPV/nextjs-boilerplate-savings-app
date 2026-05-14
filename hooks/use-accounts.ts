@@ -29,7 +29,7 @@ export function useCreateAccount() {
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: number; name?: string; owner?: string | null; quarterlyLimit?: string | null }) =>
+    mutationFn: ({ id, ...data }: { id: number; name?: string; owner?: string | null; biannualLimit?: string | null }) =>
       fetch(`/api/accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["accounts"] });
