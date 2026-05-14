@@ -170,12 +170,14 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             label="Total Balance"
             value={analytics.totalBalance}
             className="col-span-2"
+            info="Initial balance plus all deposits and recorded interest. The single number that tells you what the account is worth right now."
           />
           <StatCard
             tone="amber"
             label="Last Interest"
             value={analytics.lastInterest?.amount ?? null}
             emptyLabel="None yet"
+            info="Most recent interest payout posted to the account. Banks usually credit interest at the end of each cycle — confirms the account is still earning."
           >
             {analytics.lastInterest && (
               <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
@@ -195,18 +197,30 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             value={analytics.growth.halfOverHalf}
             format="delta-percent"
             emptyLabel="—"
+            info="Half-over-Half growth. How much the total balance has changed since the end of the previous half-year. Quick read on whether the account is growing or shrinking this cycle."
           />
         </div>
       </section>
 
       <CollapsibleSection eyebrow="Composition">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard tone="indigo" label="Total Contributions" value={analytics.totalContributions} />
-          <StatCard tone="amber" label="Total Interest" value={analytics.totalInterest} />
+          <StatCard
+            tone="indigo"
+            label="Total Contributions"
+            value={analytics.totalContributions}
+            info="Sum of every deposit ever made by all members. Excludes interest — this is just the money you put in."
+          />
+          <StatCard
+            tone="amber"
+            label="Total Interest"
+            value={analytics.totalInterest}
+            info="All interest the bank has paid the account, all-time. The portion of the balance that wasn't contributed by you."
+          />
           <StatCard
             tone="rust"
             label={account.owner ? `Owner Tax (${account.owner})` : "Owner Tax"}
             value={analytics.ownerTax}
+            info="30% of every interest payout is allocated to the account owner before the rest is split among members — compensation for holding the account in their name and paying the BIR's 20% final withholding tax on interest."
           />
           <StatCard
             tone="violet"
@@ -214,6 +228,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             value={analytics.effectiveYield}
             format="percent"
             emptyLabel="—"
+            info="Annualized return on the money actually sitting in the account. Computed as total interest ÷ all-time average daily balance, scaled to a year. Lets you compare against the bank's advertised rate."
           />
         </div>
       </CollapsibleSection>
@@ -231,17 +246,20 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             tone="indigo"
             label="Deposited"
             value={analytics.biannual.current.deposited}
+            info="Total deposits made so far in this half-year window. Counts toward the biannual limit."
           />
           <StatCard
             tone="sky"
             label="Remaining"
             value={analytics.biannual.current.remaining}
             emptyLabel="No limit"
+            info="Biannual limit minus what's been deposited so far. How much room you still have this half-year before hitting the cap."
           />
           <StatCard
             tone="slate"
             label="Avg Monthly Balance"
             value={analytics.averageMonthlyBalance}
+            info="Average of each month's average daily balance within the current half-year. The figure most banks use to compute interest payouts — high ADB means a bigger interest credit."
           />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -249,6 +267,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
             tone="amber"
             label={`Projected Interest (${(analytics.projectedInterest.annualRate * 100).toFixed(0)}% APR)`}
             value={analytics.projectedInterest.halfYearTarget}
+            info={`What the account should earn this half-year if it keeps the current Avg Monthly Balance and the bank pays the assumed ${(analytics.projectedInterest.annualRate * 100).toFixed(0)}% annual rate. Compare with what's actually been credited to spot underpayments.`}
           >
             <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
               {formatCurrency(analytics.projectedInterest.earnedThisHalf)} earned · {formatCurrency(analytics.projectedInterest.remaining)} to go

@@ -1,6 +1,7 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type StatTone = "emerald" | "indigo" | "amber" | "rust" | "violet" | "sky" | "slate";
 export type StatFormat = "currency" | "percent" | "delta-percent";
@@ -36,6 +37,7 @@ interface StatCardProps {
   tone?: StatTone;
   size?: "default" | "hero";
   emptyLabel?: string;
+  info?: React.ReactNode;
   children?: React.ReactNode;
   className?: string;
 }
@@ -56,6 +58,7 @@ export function StatCard({
   tone = "slate",
   size = "default",
   emptyLabel = "—",
+  info,
   children,
   className,
 }: StatCardProps) {
@@ -77,6 +80,20 @@ export function StatCard({
         <p className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
           {label}
         </p>
+        {info && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`About ${label}`}
+                className="inline-flex h-4 w-4 items-center justify-center rounded text-foreground/35 hover:text-foreground/70 transition-colors"
+              >
+                <Info className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{info}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
       <p className={cn(
         "font-display leading-tight font-medium mt-2 tabular-nums",

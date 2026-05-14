@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Check, X } from "lucide-react";
+import { Pencil, Check, X, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useUpdateAccount } from "@/hooks/use-accounts";
 import { formatCurrency } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Props {
   accountId: number;
@@ -49,6 +50,20 @@ export function BiannualLimitCard({ accountId, limit }: Props) {
           <p className="text-[10.5px] uppercase tracking-[0.14em] font-medium text-foreground/55">
             Biannual Limit
           </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="About Biannual Limit"
+                className="inline-flex h-4 w-4 items-center justify-center rounded text-foreground/35 hover:text-foreground/70 transition-colors"
+              >
+                <Info className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Maximum amount you plan to deposit in each half-year window (Jan–Jun, Jul–Dec). Use it to pace contributions and avoid breaching savings-account caps that may forfeit interest.
+            </TooltipContent>
+          </Tooltip>
         </div>
         {!editing && (
           <button
