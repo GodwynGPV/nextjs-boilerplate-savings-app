@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddTransactionDialog } from "./add-transaction-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -82,16 +83,34 @@ export function TransactionHistory({ accountId, transactions, members }: Props) 
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">
-          {transactions.length === 0 ? "No transactions yet." : "No transactions match these filters."}
-        </p>
+        transactions.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-12 rounded-xl border border-dashed border-border/60 bg-card/40">
+            <Inbox className="h-10 w-10 text-muted-foreground/60 mb-3" />
+            <p className="text-sm font-medium">No transactions yet</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-4">
+              Add your first deposit or interest payout to start tracking.
+            </p>
+            <AddTransactionDialog accountId={accountId} members={members} />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No transactions match these filters.
+          </p>
+        )
       ) : (
         <ScrollArea className="h-[400px] rounded-xl border border-border/60 bg-card">
           <div className="divide-y divide-border/60">
             {filtered.map(txn => {
               const isInterest = txn.type === "interest";
               return (
-                <div key={txn.id} className="flex items-center justify-between px-4 py-3 group">
+                <div
+                  key={txn.id}
+                  className={`flex items-center justify-between px-4 py-3 group border-l-2 transition-colors ${
+                    isInterest
+                      ? "border-l-[var(--tone-amber)] hover:bg-[var(--tint-amber)]/40"
+                      : "border-l-[var(--tone-indigo)] hover:bg-[var(--tint-indigo)]/40"
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <span className={`h-2 w-2 rounded-full ${isInterest ? "bg-[var(--tone-amber)]" : "bg-[var(--tone-indigo)]"}`} />
                     <div>

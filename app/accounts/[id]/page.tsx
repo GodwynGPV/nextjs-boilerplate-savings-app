@@ -1,8 +1,8 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Download, Pencil, Check, X, ChevronDown } from "lucide-react";
+import { ArrowLeft, Trash2, Download, Pencil, Check, X, ChevronDown, PiggyBank } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,14 +28,31 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
 
 function CollapsibleSection({
   eyebrow,
+  storageKey,
   defaultOpen = false,
   children,
 }: {
   eyebrow: React.ReactNode;
+  storageKey?: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const hydrated = useRef(false);
+
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(storageKey);
+    if (saved === "1") setOpen(true);
+    else if (saved === "0") setOpen(false);
+    hydrated.current = true;
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !hydrated.current || typeof window === "undefined") return;
+    window.localStorage.setItem(storageKey, open ? "1" : "0");
+  }, [open, storageKey]);
+
   return (
     <section className="space-y-3">
       <button
@@ -52,6 +69,22 @@ function CollapsibleSection({
       {open && <div className="space-y-3">{children}</div>}
     </section>
   );
+}
+
+function useScrollPastSentinel() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [past, setPast] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setPast(!entry.isIntersecting),
+      { rootMargin: "-72px 0px 0px 0px", threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return { sentinelRef: ref, past };
 }
 
 export default function AccountPage({ params }: { params: Promise<{ id: string }> }) {
@@ -101,21 +134,118 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />)}
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-7 w-56 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-40 bg-muted/70 rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="h-3 w-24 bg-muted/70 rounded animate-pulse" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="h-32 bg-muted rounded-xl animate-pulse col-span-2" />
+            <div className="h-32 bg-muted rounded-xl animate-pulse" />
+            <div className="h-32 bg-muted rounded-xl animate-pulse" />
+          </div>
+        </div>
+        <div className="h-3 w-32 bg-muted/70 rounded animate-pulse" />
+        <div className="h-3 w-40 bg-muted/70 rounded animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-72 bg-muted rounded-xl animate-pulse" />
+          <div className="h-72 bg-muted rounded-xl animate-pulse" />
         </div>
       </div>
     );
   }
 
-  if (!account) return <p className="text-muted-foreground">Account not found.</p>;
+  if (!account) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <PiggyBank className="h-16 w-16 text-muted-foreground mb-4" />
+        <h2 className="font-display text-xl font-medium tracking-tight">Account not found</h2>
+        <p className="text-muted-foreground mt-1 mb-4 text-sm">
+          It may have been deleted, or the link is wrong.
+        </p>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/"><ArrowLeft className="h-4 w-4" /> Back to dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
 
+  const { analytics } = account;
+
+  return <AccountView
+    account={account}
+    accountId={accountId}
+    transactions={transactions}
+    editingName={editingName}
+    nameValue={nameValue}
+    setNameValue={setNameValue}
+    handleNameKeyDown={handleNameKeyDown}
+    saveEditName={saveEditName}
+    cancelEditName={cancelEditName}
+    startEditName={startEditName}
+    isUpdating={isUpdating}
+    handleDelete={handleDelete}
+    handleExport={handleExport}
+  />;
+}
+
+function AccountView({
+  account,
+  accountId,
+  transactions,
+  editingName,
+  nameValue,
+  setNameValue,
+  handleNameKeyDown,
+  saveEditName,
+  cancelEditName,
+  startEditName,
+  isUpdating,
+  handleDelete,
+  handleExport,
+}: {
+  account: NonNullable<ReturnType<typeof useAccount>["data"]>;
+  accountId: number;
+  transactions: NonNullable<ReturnType<typeof useTransactions>["data"]>;
+  editingName: boolean;
+  nameValue: string;
+  setNameValue: (v: string) => void;
+  handleNameKeyDown: (e: React.KeyboardEvent) => void;
+  saveEditName: () => void;
+  cancelEditName: () => void;
+  startEditName: () => void;
+  isUpdating: boolean;
+  handleDelete: () => void;
+  handleExport: () => void;
+}) {
+  const { sentinelRef, past } = useScrollPastSentinel();
   const { analytics } = account;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div
+        className={`pointer-events-none fixed left-0 right-0 top-[57px] z-10 border-b border-border/60 bg-background/85 backdrop-blur-md transition-all duration-200 ${
+          past ? "translate-y-0 opacity-100 pointer-events-auto" : "-translate-y-full opacity-0"
+        }`}
+      >
+        <div className="mx-auto max-w-6xl px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 hover:text-foreground hover:bg-foreground/5 transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <span className="font-display text-base font-medium tracking-tight truncate">{account.name}</span>
+          </div>
+          <span className="font-display text-base font-medium tabular-nums">
+            {formatCurrency(analytics.totalBalance)}
+          </span>
+        </div>
+      </div>
+
+      <div ref={sentinelRef} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
@@ -203,7 +333,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         </div>
       </section>
 
-      <CollapsibleSection eyebrow="Composition">
+      <CollapsibleSection eyebrow="Composition" storageKey={`account:${accountId}:section:composition`}>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             tone="indigo"
@@ -235,6 +365,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
       </CollapsibleSection>
 
       <CollapsibleSection
+        storageKey={`account:${accountId}:section:half`}
         eyebrow={
           <>
             This Half Year <span className="text-foreground/40">·</span> H{analytics.biannual.current.half} {analytics.biannual.current.year}
@@ -286,6 +417,7 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
         limit={analytics.biannual.limit}
         currentYear={analytics.biannual.current.year}
         currentHalf={analytics.biannual.current.half}
+        emptyAction={<AddTransactionDialog accountId={accountId} members={account.members} />}
       />
 
       <div>

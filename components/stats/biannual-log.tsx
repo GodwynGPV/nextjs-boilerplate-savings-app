@@ -9,13 +9,15 @@ interface Props {
   limit: number | null;
   currentYear: number;
   currentHalf: 1 | 2;
+  emptyAction?: React.ReactNode;
 }
 
 function halfLabel(year: number, half: 1 | 2) {
   return `H${half} · ${year}`;
 }
 
-export function BiannualLog({ history, limit, currentYear, currentHalf }: Props) {
+export function BiannualLog({ history, limit, currentYear, currentHalf, emptyAction }: Props) {
+  const allEmpty = history.every(h => h.deposited === 0);
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-3">
@@ -31,8 +33,16 @@ export function BiannualLog({ history, limit, currentYear, currentHalf }: Props)
         </div>
       </CardHeader>
       <CardContent>
-        {history.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No deposits yet.</p>
+        {history.length === 0 || allEmpty ? (
+          <div className="flex flex-col items-center text-center py-6">
+            <p className="text-sm text-muted-foreground">
+              No deposits recorded yet.
+            </p>
+            <p className="text-xs text-muted-foreground/80 mt-1">
+              Add one to start tracking the half-year cap.
+            </p>
+            {emptyAction && <div className="mt-3">{emptyAction}</div>}
+          </div>
         ) : (
           <div className="space-y-4">
             {history.map(h => {

@@ -82,6 +82,50 @@ export function AccountCard({ account }: { account: AccountWithAnalytics }) {
             </div>
           </div>
 
+          {analytics.biannual.limit !== null && (() => {
+            const { deposited } = analytics.biannual.current;
+            const limit = analytics.biannual.limit!;
+            const pct = limit > 0 ? Math.min(100, (deposited / limit) * 100) : 0;
+            const over = deposited > limit;
+            const halfLabel = `H${analytics.biannual.current.half} ${analytics.biannual.current.year}`;
+            return (
+              <div className="mt-4 space-y-1">
+                <div className="flex items-baseline justify-between text-[10px] uppercase tracking-[0.14em] font-medium">
+                  <span className="text-foreground/55">{halfLabel} progress</span>
+                  <span className={`tabular-nums ${over ? "text-destructive" : "text-foreground/70"}`}>
+                    {formatCurrency(deposited)} / {formatCurrency(limit)}
+                  </span>
+                </div>
+                <div className="h-1 w-full bg-foreground/5 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      over
+                        ? "bg-destructive"
+                        : pct >= 90
+                          ? "bg-[var(--tone-amber)]"
+                          : "bg-[var(--tone-emerald)]"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          {analytics.projectedInterest.variancePct !== null && Math.abs(analytics.projectedInterest.variancePct) >= 5 && (
+            <div className="mt-3">
+              {analytics.projectedInterest.variance >= 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--tone-emerald)]/10 px-2 py-0.5 text-[10.5px] font-medium text-[var(--tone-emerald)]">
+                  +{analytics.projectedInterest.variancePct.toFixed(0)}% vs target this half
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10.5px] font-medium text-destructive">
+                  {analytics.projectedInterest.variancePct.toFixed(0)}% vs target this half
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-1.5 mt-4">
             {analytics.contributors.filter(c => c.totalValue > 0).map((c, i) => (
               <span
