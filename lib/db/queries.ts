@@ -3,7 +3,7 @@ import { db } from "./index";
 import { accounts, transactions, type AccountAnalytics, type AccountWithAnalytics, type HalfYearStats } from "./schema";
 
 const OWNER_TAX_RATE = 0.30;
-const ANNUAL_INTEREST_RATE = 0.17;
+const DEFAULT_ANNUAL_INTEREST_RATE = 0.17;
 
 const MS_PER_DAY = 86_400_000;
 const HALF_YEAR_MONTHS = 6;
@@ -25,6 +25,8 @@ function halfEnd(year: number, half: 1 | 2): Date {
   return new Date(year, half === 1 ? 6 : 12, 0);
 }
 
+// O(n_txns) average daily balance: walk the piecewise-constant balance curve
+// segment-by-segment instead of day-by-day.
 function adbOverPeriod(
   initialBalance: number,
   txns: { amount: number; date: Date }[],
@@ -34,27 +36,33 @@ function adbOverPeriod(
   if (periodEnd.getTime() < periodStart.getTime()) return 0;
   const totalDays = Math.floor((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY) + 1;
 
-  let balance = initialBalance;
-  const periodTxns: { time: number; amount: number }[] = [];
+  // Group by day, applying anything before the period to the opening balance.
+  let balanceAtStart = initialBalance;
+  const dayDeltas = new Map<number, number>();
   for (const t of txns) {
-    const day = startOfDay(t.date);
-    if (day.getTime() < periodStart.getTime()) {
-      balance += t.amount;
-    } else if (day.getTime() <= periodEnd.getTime()) {
-      periodTxns.push({ time: day.getTime(), amount: t.amount });
+    const day = startOfDay(t.date).getTime();
+    if (day < periodStart.getTime()) {
+      balanceAtStart += t.amount;
+    } else if (day <= periodEnd.getTime()) {
+      dayDeltas.set(day, (dayDeltas.get(day) ?? 0) + t.amount);
     }
   }
-  periodTxns.sort((a, b) => a.time - b.time);
+
+  const deltaDays = Array.from(dayDeltas.entries())
+    .map(([time, amount]) => ({ time, amount }))
+    .sort((a, b) => a.time - b.time);
 
   let sum = 0;
-  let idx = 0;
-  for (let t = periodStart.getTime(); t <= periodEnd.getTime(); t += MS_PER_DAY) {
-    while (idx < periodTxns.length && periodTxns[idx].time === t) {
-      balance += periodTxns[idx].amount;
-      idx++;
-    }
-    sum += balance;
+  let balance = balanceAtStart;
+  let cursor = periodStart.getTime();
+  for (const { time, amount } of deltaDays) {
+    const daysAtPrev = Math.floor((time - cursor) / MS_PER_DAY);
+    if (daysAtPrev > 0) sum += balance * daysAtPrev;
+    balance += amount;
+    cursor = time;
   }
+  const trailingDays = Math.floor((periodEnd.getTime() - cursor) / MS_PER_DAY) + 1;
+  sum += balance * trailingDays;
 
   return sum / totalDays;
 }
@@ -129,6 +137,7 @@ function computeAnalytics(
   txns: { type: string; depositorName: string | null; amount: number; date: Date }[],
   owner?: string | null,
   biannualLimit?: number | null,
+  annualInterestRate: number = DEFAULT_ANNUAL_INTEREST_RATE,
 ): AccountAnalytics {
   const sorted = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -242,16 +251,19 @@ function computeAnalytics(
 
   // Projected interest for the current half-year at the annual rate.
   // halfYearTarget = avgMonthlyBalance * (rate / 2)
-  const halfYearTarget = averageMonthlyBalance * (ANNUAL_INTEREST_RATE / 2);
+  const halfYearTarget = averageMonthlyBalance * (annualInterestRate / 2);
   const currHalfEndDate = halfEnd(biannual.current.year, biannual.current.half);
   const earnedThisHalf = interests
     .filter(t => t.date >= currHalfStart && t.date <= currHalfEndDate)
     .reduce((s, t) => s + t.amount, 0);
+  const variance = earnedThisHalf - halfYearTarget;
   const projectedInterest = {
-    annualRate: ANNUAL_INTEREST_RATE,
+    annualRate: annualInterestRate,
     halfYearTarget,
     earnedThisHalf,
     remaining: Math.max(0, halfYearTarget - earnedThisHalf),
+    variance,
+    variancePct: halfYearTarget > 0 ? (variance / halfYearTarget) * 100 : null,
   };
 
   return {
@@ -279,6 +291,7 @@ function rowsToAnalytics(
   rows: { type: string; depositorName: string | null; amount: string; date: string }[],
   owner?: string | null,
   biannualLimit?: string | null,
+  annualInterestRate?: string | null,
 ): AccountAnalytics {
   const txns = rows.map(r => ({
     type: r.type,
@@ -287,7 +300,8 @@ function rowsToAnalytics(
     date: new Date(r.date),
   }));
   const limit = biannualLimit == null ? null : parseFloat(biannualLimit);
-  return computeAnalytics(parseFloat(initialBalance), members, txns, owner, limit);
+  const rate = annualInterestRate == null ? DEFAULT_ANNUAL_INTEREST_RATE : parseFloat(annualInterestRate);
+  return computeAnalytics(parseFloat(initialBalance), members, txns, owner, limit, rate);
 }
 
 export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
@@ -298,7 +312,7 @@ export async function getAllAccounts(): Promise<AccountWithAnalytics[]> {
 
   return rows.map(acc => ({
     ...acc,
-    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit),
+    analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit, acc.annualInterestRate),
   }));
 }
 
@@ -308,10 +322,10 @@ export async function getAccount(id: number): Promise<AccountWithAnalytics | nul
     with: { transactions: { orderBy: [desc(transactions.date), desc(transactions.createdAt)] } },
   });
   if (!acc) return null;
-  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit) };
+  return { ...acc, analytics: rowsToAnalytics(acc.initialBalance, acc.members, acc.transactions, acc.owner, acc.biannualLimit, acc.annualInterestRate) };
 }
 
-export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null; biannualLimit?: string | null }) {
+export async function createAccount(data: { name: string; initialBalance?: string; members?: string[]; owner?: string | null; biannualLimit?: string | null; annualInterestRate?: string }) {
   const [acc] = await db
     .insert(accounts)
     .values({
@@ -320,12 +334,13 @@ export async function createAccount(data: { name: string; initialBalance?: strin
       members: data.members ?? ["Wil", "Wyn", "Bam"],
       owner: data.owner ?? null,
       biannualLimit: data.biannualLimit ?? null,
+      ...(data.annualInterestRate !== undefined ? { annualInterestRate: data.annualInterestRate } : {}),
     })
     .returning();
   return acc;
 }
 
-export async function updateAccount(id: number, data: { name?: string; owner?: string | null; biannualLimit?: string | null }) {
+export async function updateAccount(id: number, data: { name?: string; owner?: string | null; biannualLimit?: string | null; annualInterestRate?: string }) {
   const [acc] = await db.update(accounts).set(data).where(eq(accounts.id, id)).returning();
   return acc;
 }

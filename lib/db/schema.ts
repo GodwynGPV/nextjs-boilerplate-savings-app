@@ -10,6 +10,7 @@ export const accounts = pgTable("accounts", {
   members: text("members").array().notNull().default(["Wil", "Wyn", "Bam"]),
   owner: text("owner"),
   biannualLimit: numeric("biannual_limit", { precision: 12, scale: 2 }),
+  annualInterestRate: numeric("annual_interest_rate", { precision: 6, scale: 4 }).notNull().default("0.1700"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -41,6 +42,7 @@ export const insertAccountSchema = createInsertSchema(accounts)
     members: z.array(z.string().min(1)).optional().default(["Wil", "Wyn", "Bam"]),
     owner: z.string().nullable().optional(),
     biannualLimit: z.union([z.string(), z.number()]).transform(String).nullable().optional(),
+    annualInterestRate: z.union([z.string(), z.number()]).transform(String).optional(),
   });
 
 export const insertTransactionSchema = createInsertSchema(transactions)
@@ -61,6 +63,7 @@ export const updateAccountSchema = z.object({
   name: z.string().min(1).transform(s => s.trim()).optional(),
   owner: z.string().nullable().optional(),
   biannualLimit: z.union([z.string(), z.number()]).transform(v => v === "" ? null : String(v)).nullable().optional(),
+  annualInterestRate: z.union([z.string(), z.number()]).transform(v => String(v)).optional(),
 });
 
 export type Account = typeof accounts.$inferSelect;
@@ -108,6 +111,8 @@ export interface AccountAnalytics {
     halfYearTarget: number;
     earnedThisHalf: number;
     remaining: number;
+    variance: number;
+    variancePct: number | null;
   };
   lastInterest: { date: string; amount: number } | null;
   effectiveYield: number | null;

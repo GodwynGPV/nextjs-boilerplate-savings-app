@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/stats/stat-card";
 import { BiannualLimitCard } from "@/components/stats/biannual-limit-card";
 import { BiannualLog } from "@/components/stats/biannual-log";
+import { ProjectedInterestCard } from "@/components/stats/projected-interest-card";
 import { OwnershipChart } from "@/components/charts/ownership-chart";
 import { ContributionChart } from "@/components/charts/contribution-chart";
 import { AddTransactionDialog } from "@/components/transactions/add-transaction-dialog";
@@ -263,16 +264,15 @@ export default function AccountPage({ params }: { params: Promise<{ id: string }
           />
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            tone="amber"
-            label={`Projected Interest (${(analytics.projectedInterest.annualRate * 100).toFixed(0)}% APR)`}
-            value={analytics.projectedInterest.halfYearTarget}
-            info={`What the account should earn this half-year if it keeps the current Avg Monthly Balance and the bank pays the assumed ${(analytics.projectedInterest.annualRate * 100).toFixed(0)}% annual rate. Compare with what's actually been credited to spot underpayments.`}
-          >
-            <p className="text-xs text-muted-foreground mt-1.5 tabular-nums">
-              {formatCurrency(analytics.projectedInterest.earnedThisHalf)} earned · {formatCurrency(analytics.projectedInterest.remaining)} to go
-            </p>
-          </StatCard>
+          <ProjectedInterestCard
+            accountId={accountId}
+            annualRate={analytics.projectedInterest.annualRate}
+            halfYearTarget={analytics.projectedInterest.halfYearTarget}
+            earnedThisHalf={analytics.projectedInterest.earnedThisHalf}
+            remaining={analytics.projectedInterest.remaining}
+            variance={analytics.projectedInterest.variance}
+            variancePct={analytics.projectedInterest.variancePct}
+          />
         </div>
       </CollapsibleSection>
 
